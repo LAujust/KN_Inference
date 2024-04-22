@@ -169,6 +169,9 @@ class Knust(object):
             for filt in self.model.keys():
                 outfile = os.path.join(outdir, f"{filt}.h5")
                 self.model[filt]["model"] = load_tf_model(outfile)
+                
+        else:
+            raise KeyError('Check model_type!')
         
     def save_model(self):
         if self.model_type == 'tensorflow':
@@ -337,12 +340,18 @@ class Knust(object):
 
             # spectra_back = np.dot(VA[:, :n_coeff], cAproj)
             # spectra_back = spectra_back * (maxs - mins) + mins
-            model = svd_spec_model[lambda_d]["model"]
-            cAproj = model(np.atleast_2d(param_list_postprocess)).numpy().T.flatten()
-            cAstd = np.ones((n_coeff,))
-
-                        # coverrors = np.dot(VA[:, :n_coeff], np.dot(np.power(np.diag(cAstd[:n_coeff]), 2), VA[:, :n_coeff].T))
-                        # errors = np.diag(coverrors)
+            if self.model_type == 'tensorflow':
+                model = svd_spec_model[lambda_d]["model"]
+                cAproj = model(np.atleast_2d(param_list_postprocess)).numpy().T.flatten()
+                cAstd = np.ones((n_coeff,))
+            elif self.model_type == 'gpr':
+                gps = svd_spec_model[lambda_d]["gps"]
+                for i in range(n_coeff):
+                    gp = gps[i]
+                    y_pred, sigma2_pred = gp.predict(
+                        np.atleast_2d(param_list_postprocess), return_std=True
+                    )
+                    cAproj[i] = y_pred
 
             spectra_back = np.dot(VA[:, :n_coeff], cAproj)
             spectra_back = spectra_back * (maxs - mins) + mins
